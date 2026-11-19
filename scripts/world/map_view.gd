@@ -1,13 +1,82 @@
 extends Node3D
-## Haritayi Unity asset'lerinden kurup kamerayi sehre sigdiran sahne.
+## Haritayi kurar; yukleme barli (yuzde) async build.
 
 @export var base_path: String = "res://assets/projeto/"
 @export var max_objects: int = 0
 @export var collision: bool = false
 @export var static_only: bool = false
 
+var _load_layer: CanvasLayer
+var _load_bar: ProgressBar
+var _load_label: Label
+
 
 func _ready() -> void:
+    _build_environment()
+
+    var sun := DirectionalLight3D.new()
+    sun.rotation_degrees = Vector3(-50, -35, 0)
+    sun.light_energy = 1.2
+    sun.shadow_enabled = false
+    add_child(sun)
+
+    _build_loading()
+
+    var imp := MapImporter.new()
+    imp.base_path = base_path
+    imp.max_objects = max_objects
+    imp.verbose = true
+    imp.collision = collision
+    imp.static_only = static_only
+    imp.world_scale = 1.0
+    add_child(imp)
+
+    var st = await imp.build_async(_on_progress)
+    Log.info("map", "harita: %s" % str(st))
+    _finish_loading()
+
+    var cam := Camera3D.new()
+    cam.fov = 70.0
+    cam.near = 0.1
+    cam.far = 30000.0
+    cam.set_script(load("res://scripts/world/free_fly.gd"))
+    add_child(cam)
+
+    var pts: Array = []
+    for c in imp.get_children():
+        if c is MeshInstance3D and c.get_meta("city", false):
+            pts.append(c.transform.origin)
+    if pts.is_empty():
+        for c in imp.get_children():
+            if c is MeshInstance3D:
+                pts.append(c.transform.origin)
+
+    if pts.is_empty():
+        cam.position = Vector3(0, 200, 400)
+        cam.rotation = Vector3(-0.4, 0, 0)
+        Log.info("map", "obje yok, varsayilan kamera")
+    else:
+        var xs: Array = []
+        var ys: Array = []
+        var zs: Array = []
+        for p in pts:
+            xs.append(p.x); ys.append(p.y); zs.append(p.z)
+        xs.sort(); ys.sort(); zs.sort()
+        var center := Vector3(xs[xs.size() / 2], ys[ys.size() / 2], zs[zs.size() / 2])
+        var ds: Array = []
+        for p in pts:
+            ds.append(p.distance_to(center))
+        ds.sort()
+        var radius: float = maxf(ds[int(ds.size() * 0.8)], 10.0)
+        var pos := center + Vector3(0.0, radius * 0.6, radius * 1.2)
+        var dir := (center - pos).normalized()
+        cam.position = pos
+        cam.rotation = Vector3(asin(clampf(dir.y, -1.0, 1.0)), atan2(-dir.x, -dir.z), 0.0)
+        Log.info("map", "kamera merkez=%s yari=%s obje=%d" % [str(center), str(radius), pts.size()])
+    cam.current = true
+
+
+func _build_environment() -> void:
     var world_env := WorldEnvironment.new()
     var e := Environment.new()
     e.background_mode = Environment.BG_SKY
@@ -20,55 +89,49 @@ func _ready() -> void:
     world_env.environment = e
     add_child(world_env)
 
-    var sun := DirectionalLight3D.new()
-    sun.rotation_degrees = Vector3(-50, -35, 0)
-    sun.light_energy = 1.2
-    sun.shadow_enabled = false
-    add_child(sun)
 
-    var imp := MapImporter.new()
-    imp.base_path = base_path
-    imp.max_objects = max_objects
-    imp.verbose = true
-    imp.collision = collision
-    imp.static_only = static_only
-    add_child(imp)
-    var st := imp.build()
-    Log.info("map", "harita: %s" % str(st))
+func _build_loading() -> void:
+    _load_layer = CanvasLayer.new()
+    add_child(_load_layer)
 
-    var cam := Camera3D.new()
-    cam.fov = 70.0
-    cam.near = 0.1
-    cam.far = 30000.0
-    cam.set_script(load("res://scripts/world/free_fly.gd"))
-    add_child(cam)
+    var bg := ColorRect.new()
+    bg.color = Color(0.03, 0.04, 0.06, 1.0)
+    bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _load_layer.add_child(bg)
 
-    var aabb := AABB()
-    var first := true
-    for c in imp.get_children():
-        if c is MeshInstance3D:
-            var lb: AABB = c.get_aabb()
-            if maxf(lb.size.x, maxf(lb.size.y, lb.size.z)) < 300.0:
-                continue
-            var wb: AABB = c.transform * lb
-            if first:
-                aabb = wb
-                first = false
-            else:
-                aabb = aabb.merge(wb)
+    var center := CenterContainer.new()
+    center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _load_layer.add_child(center)
 
-    if first:
-        cam.position = Vector3(0, 200, 400)
-        cam.rotation = Vector3(-0.4, 0, 0)
-        Log.info("map", "buyuk mesh yok, varsayilan kamera")
-    else:
-        var center := aabb.get_center()
-        var radius := aabb.size.length()
-        var pos := center + Vector3(0.0, radius * 0.02, radius * 0.04)
-        var dir := (center - pos).normalized()
-        var yaw := atan2(-dir.x, -dir.z)
-        var pitch := asin(clampf(dir.y, -1.0, 1.0))
-        cam.position = pos
-        cam.rotation = Vector3(pitch, yaw, 0.0)
-        Log.info("map", "kamera merkez=%s cap=%s" % [str(center), str(aabb.size)])
-    cam.current = true
+    var vb := VBoxContainer.new()
+    vb.custom_minimum_size = Vector2(460, 0)
+    center.add_child(vb)
+
+    _load_label = Label.new()
+    _load_label.text = "Harita yukleniyor... %0"
+    _load_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _load_label.add_theme_font_size_override("font_size", 26)
+    vb.add_child(_load_label)
+
+    _load_bar = ProgressBar.new()
+    _load_bar.min_value = 0.0
+    _load_bar.max_value = 100.0
+    _load_bar.value = 0.0
+    _load_bar.custom_minimum_size = Vector2(460, 30)
+    _load_bar.show_percentage = false
+    vb.add_child(_load_bar)
+
+
+func _on_progress(p: float, done: int, total: int) -> void:
+    if _load_bar:
+        _load_bar.value = p * 100.0
+    if _load_label:
+        _load_label.text = "Harita yukleniyor... %%%d  (%d/%d)" % [int(p * 100.0), done, total]
+
+
+func _finish_loading() -> void:
+    if _load_layer:
+        _load_layer.visible = false
+        _load_layer.queue_free()
+        _load_layer = null

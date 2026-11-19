@@ -1,83 +1,101 @@
 extends Node3D
 class_name MapImporter
 ## Projeto Grau 2 (Unity) haritasini Godot'a kurar.
-## map_manifest.json + OBJ mesh'lerini okur, dunya matrislerini uygular.
+## map_manifest.json + OBJ (.msh) mesh'lerini okur, dunya matrislerini uygular.
 ## Unity sol-elli -> Godot sag-elli: Z flip + winding ters + matris konjugasyonu.
 
 @export var base_path: String = "res://assets/projeto/"
-@export var max_objects: int = 0        # 0 = hepsi
+@export var max_objects: int = 0
 @export var flip_v: bool = true
 @export var verbose: bool = false
 @export var collision: bool = false
 @export var collision_min_size: float = 1.5
-@export var static_only: bool = true
+@export var static_only: bool = false
+@export var world_scale: float = 1.0
 
 var stats := {"objects": 0, "meshes_loaded": 0, "materials": 0, "skipped": 0, "colliders": 0}
 var _mesh_cache := {}
 var _mat_cache := {}
 var _matdefs := {}
 var _tex_cache := {}
-var _combined_done := {}
 
-const SIGN := [1.0, 1.0, -1.0, 1.0]   # F = diag(1,1,-1,1)
+const SIGN := [1.0, 1.0, -1.0, 1.0]
 
 
 func build() -> Dictionary:
+    var objs := _load_objects()
+    if objs.is_empty():
+        return stats
+    var limit := objs.size() if max_objects <= 0 else mini(max_objects, objs.size())
+    for i in range(limit):
+        if not _spawn_one(objs[i], i):
+            stats["skipped"] += 1
+    if verbose:
+        print("[map] built: ", stats)
+    return stats
+
+
+func build_async(on_progress: Callable) -> Dictionary:
+    var objs := _load_objects()
+    if objs.is_empty():
+        return stats
+    var limit := objs.size() if max_objects <= 0 else mini(max_objects, objs.size())
+    for i in range(limit):
+        if not _spawn_one(objs[i], i):
+            stats["skipped"] += 1
+        if i % 20 == 0 or i == limit - 1:
+            if on_progress.is_valid():
+                on_progress.call(float(i + 1) / float(limit), i + 1, limit)
+            await get_tree().process_frame
+    if verbose:
+        print("[map] built: ", stats)
+    return stats
+
+
+func _load_objects() -> Array:
     var manifest_path := base_path + "map_manifest.json"
     if not FileAccess.file_exists(manifest_path):
         push_error("manifest yok: " + manifest_path)
-        return stats
+        return []
     var txt := FileAccess.get_file_as_string(manifest_path)
     var data = JSON.parse_string(txt)
     if data == null or not data.has("objects"):
         push_error("manifest parse hatasi")
-        return stats
-
-    var objs: Array = data["objects"]
+        return []
     _load_matdefs()
-    var limit := objs.size() if max_objects <= 0 else mini(max_objects, objs.size())
-    for i in range(limit):
-        var o: Dictionary = objs[i]
-        if not bool(o.get("enabled", true)):
-            stats["skipped"] += 1
-            continue
-        var mesh_file: String = str(o.get("mesh", ""))
-        if mesh_file == "":
-            stats["skipped"] += 1
-            continue
-        if static_only and not mesh_file.begins_with("Combined_Mesh"):
-            stats["skipped"] += 1
-            continue
-        var mesh := _get_mesh(mesh_file)
-        if mesh == null:
-            stats["skipped"] += 1
-            continue
-        var xform := _to_transform(o.get("m", []))
-        var sc := xform.basis.get_scale()
-        if maxf(sc.x, maxf(sc.y, sc.z)) > 10.0:
-            stats["skipped"] += 1
-            continue
-        var mi := MeshInstance3D.new()
-        mi.name = _sanitize(str(o.get("name", "obj"))) + "_%d" % i
-        mi.mesh = mesh
-        mi.transform = xform
-        mi.visibility_range_end = 1200.0
-        mi.visibility_range_end_margin = 100.0
-        mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-        mi.material_override = _get_material(o.get("materials", []))
-        add_child(mi)
-        stats["objects"] += 1
+    return data["objects"]
 
-        if collision:
-            var ab := mi.get_aabb()
-            var sz := ab.size
-            if maxf(sz.x, maxf(sz.y, sz.z)) >= collision_min_size:
-                mi.create_trimesh_collision()
-                stats["colliders"] += 1
 
-    if verbose:
-        print("[map] built: ", stats)
-    return stats
+func _spawn_one(o: Dictionary, i: int) -> bool:
+    if not bool(o.get("enabled", true)):
+        return false
+    var mesh_file: String = str(o.get("mesh", ""))
+    if mesh_file == "":
+        return false
+    if static_only and not mesh_file.begins_with("Combined_Mesh"):
+        return false
+    var mesh := _get_mesh(mesh_file)
+    if mesh == null:
+        return false
+    var xform := _to_transform(o.get("m", []))
+    var mi := MeshInstance3D.new()
+    mi.name = _sanitize(str(o.get("name", "obj"))) + "_%d" % i
+    mi.mesh = mesh
+    mi.transform = xform
+    mi.visibility_range_end = 1200.0
+    mi.visibility_range_end_margin = 100.0
+    mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    mi.material_override = _get_material(o.get("materials", []))
+    mi.set_meta("city", mesh_file.begins_with("Combined_Mesh"))
+    add_child(mi)
+    stats["objects"] += 1
+    if collision:
+        var ab := mi.get_aabb()
+        var sz := ab.size
+        if maxf(sz.x, maxf(sz.y, sz.z)) >= collision_min_size:
+            mi.create_trimesh_collision()
+            stats["colliders"] += 1
+    return true
 
 
 func _get_mesh(file: String) -> Mesh:
@@ -128,7 +146,7 @@ func _parse_obj(path: String) -> Mesh:
                     var a := _vi(p[1])
                     var b := _vi(p[2])
                     var c := _vi(p[3])
-                    idx.append(a); idx.append(c); idx.append(b)   # winding ters
+                    idx.append(a); idx.append(c); idx.append(b)
                     if p.size() >= 5:
                         var d := _vi(p[4])
                         idx.append(a); idx.append(d); idx.append(c)
@@ -171,8 +189,8 @@ func _to_transform(flat) -> Transform3D:
     var x := Vector3(mm[0][0], mm[1][0], mm[2][0])
     var y := Vector3(mm[0][1], mm[1][1], mm[2][1])
     var z := Vector3(mm[0][2], mm[1][2], mm[2][2])
-    var o := Vector3(mm[0][3], mm[1][3], mm[2][3])
-    return Transform3D(Basis(x, y, z), o)
+    var o := Vector3(mm[0][3], mm[1][3], mm[2][3]) * world_scale
+    return Transform3D(Basis(x, y, z) * world_scale, o)
 
 
 func _load_matdefs() -> void:
