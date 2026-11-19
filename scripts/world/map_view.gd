@@ -62,8 +62,9 @@ func _ready() -> void:
         Log.info("map", "buyuk mesh yok, varsayilan kamera")
     else:
         var center := aabb.get_center()
-        var radius := aabb.size.length()
-        cam.position = center + Vector3(0.0, radius * 0.18, radius * 0.35)
-        cam.look_at(center, Vector3.UP)
-        Log.info("map", "kamera merkez=%s cap=%s" % [str(center), str(aabb.size)])
+        var ground := aabb.position.y
+        var spawn := Vector3(center.x, ground + 2.0, center.z)
+        cam.position = spawn + Vector3(0.0, 1.7, 28.0)
+        cam.look_at(spawn + Vector3(0.0, 1.2, -60.0), Vector3.UP)
+        Log.info("map", "kamera merkez=%s zemin=%s cap=%s" % [str(center), str(ground), str(aabb.size)])
     cam.current = true
