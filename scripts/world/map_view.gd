@@ -4,7 +4,7 @@ extends Node3D
 @export var base_path: String = "res://assets/projeto/"
 @export var max_objects: int = 0
 @export var collision: bool = false
-@export var static_only: bool = true
+@export var static_only: bool = false
 
 
 func _ready() -> void:
@@ -62,9 +62,8 @@ func _ready() -> void:
         Log.info("map", "buyuk mesh yok, varsayilan kamera")
     else:
         var center := aabb.get_center()
-        var ground := aabb.position.y
-        var spawn := Vector3(center.x, ground + 2.0, center.z)
-        cam.position = spawn + Vector3(0.0, 1.7, 28.0)
-        cam.look_at(spawn + Vector3(0.0, 1.2, -60.0), Vector3.UP)
-        Log.info("map", "kamera merkez=%s zemin=%s cap=%s" % [str(center), str(ground), str(aabb.size)])
+        var radius := aabb.size.length()
+        cam.position = center + Vector3(0.0, radius * 0.02, radius * 0.09)
+        cam.look_at(center, Vector3.UP)
+        Log.info("map", "kamera merkez=%s cap=%s" % [str(center), str(aabb.size)])
     cam.current = true
