@@ -40,6 +40,7 @@ func _ready() -> void:
     cam.fov = 70.0
     cam.near = 0.1
     cam.far = 30000.0
+    cam.set_script(load("res://scripts/world/free_fly.gd"))
     add_child(cam)
 
     var aabb := AABB()
@@ -57,13 +58,17 @@ func _ready() -> void:
                 aabb = aabb.merge(wb)
 
     if first:
-        cam.position = Vector3(0, 40, 120)
-        cam.look_at(Vector3(0, 0, 0))
+        cam.position = Vector3(0, 200, 400)
+        cam.rotation = Vector3(-0.4, 0, 0)
         Log.info("map", "buyuk mesh yok, varsayilan kamera")
     else:
         var center := aabb.get_center()
         var radius := aabb.size.length()
-        cam.position = center + Vector3(0.0, radius * 0.02, radius * 0.09)
-        cam.look_at(center, Vector3.UP)
+        var pos := center + Vector3(0.0, radius * 0.12, radius * 0.25)
+        var dir := (center - pos).normalized()
+        var yaw := atan2(-dir.x, -dir.z)
+        var pitch := asin(clampf(dir.y, -1.0, 1.0))
+        cam.position = pos
+        cam.rotation = Vector3(pitch, yaw, 0.0)
         Log.info("map", "kamera merkez=%s cap=%s" % [str(center), str(aabb.size)])
     cam.current = true
