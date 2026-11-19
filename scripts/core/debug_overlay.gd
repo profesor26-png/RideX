@@ -138,7 +138,7 @@ func _update_stats() -> void:
 # ---------------------------------------------------------------- log
 
 func _on_log_line(entry: Dictionary) -> void:
-	var color := ["#8b949e", "#c9d1d9", "#d29922", "#f85149"][int(entry["level"])]
+	var color: String = ["#8b949e", "#c9d1d9", "#d29922", "#f85149"][int(entry["level"])]
 	_lines.append("[color=%s]%s[/color]" % [color, str(entry["line"])])
 	if _lines.size() > MAX_LINES:
 		_lines.pop_front()
