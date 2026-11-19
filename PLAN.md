@@ -121,7 +121,8 @@ Kural: **Her fazın sonunda telefonda oynanabilir/çalışan bir sürüm olacak.
 ### ✅ Faz 0 — Kararlar
 Tür, stil, motor, imza yolu, cihaz hedefi belirlendi.
 
-### 🔜 Faz 1 — Pipeline Kanıtı
+### ✅ Faz 1 — Pipeline Kanıtı (TAMAMLANDI)
+**Sonuç:** İmzasız IPA üretildi, iPhone 11'de açıldı. Detay: `docs/FAZ1-NASIL-YAPILDI.md`
 **Amaç:** Sıfır oyun kodu. Sadece "kod → IPA → telefon" zincirinin çalıştığını kanıtla.
 
 Adımlar:
@@ -139,7 +140,7 @@ Ayrıca "tek tıkla IPA" akışı dokümante edilmiş oluyor.
 
 **Tahmini süre:** 1–2 gün (en riskli faz, %80 burada takılırız).
 
-### Faz 2 — Sürüş Çekirdeği
+### 🔜 Faz 2 — Sürüş Çekirdeği
 - Tek motor, düz boş harita
 - Gaz / fren / dönüş, raycast araç fiziği
 - 3 kamera modu, hıza göre FOV
