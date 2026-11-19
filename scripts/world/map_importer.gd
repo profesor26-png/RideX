@@ -61,6 +61,9 @@ func build() -> Dictionary:
         mi.name = _sanitize(str(o.get("name", "obj"))) + "_%d" % i
         mi.mesh = mesh
         mi.transform = xform
+        mi.visibility_range_end = 1200.0
+        mi.visibility_range_end_margin = 100.0
+        mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         mi.material_override = _get_material(o.get("materials", []))
         add_child(mi)
         stats["objects"] += 1

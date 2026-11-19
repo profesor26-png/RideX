@@ -23,7 +23,7 @@ func _ready() -> void:
     var sun := DirectionalLight3D.new()
     sun.rotation_degrees = Vector3(-50, -35, 0)
     sun.light_energy = 1.2
-    sun.shadow_enabled = true
+    sun.shadow_enabled = false
     add_child(sun)
 
     var imp := MapImporter.new()
@@ -64,7 +64,7 @@ func _ready() -> void:
     else:
         var center := aabb.get_center()
         var radius := aabb.size.length()
-        var pos := center + Vector3(0.0, radius * 0.05, radius * 0.10)
+        var pos := center + Vector3(0.0, radius * 0.02, radius * 0.04)
         var dir := (center - pos).normalized()
         var yaw := atan2(-dir.x, -dir.z)
         var pitch := asin(clampf(dir.y, -1.0, 1.0))

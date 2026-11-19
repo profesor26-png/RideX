@@ -2,7 +2,7 @@ extends Camera3D
 ## Butonlu serbest ucus: ekran butonlari hareket, sag yari surukleme bakis.
 ## PC: WASD + Shift, sag tik bakis, Space/Ctrl yukari/asagi.
 
-@export var speed := 90.0
+@export var speed := 150.0
 @export var boost := 3.0
 @export var look_sens := 0.004
 
