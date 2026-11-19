@@ -50,7 +50,10 @@ func build() -> Dictionary:
         var mi := MeshInstance3D.new()
         mi.name = _sanitize(str(o.get("name", "obj"))) + "_%d" % i
         mi.mesh = mesh
-        mi.transform = _to_transform(o.get("m", []))
+        var xform := _to_transform(o.get("m", []))
+        if mesh_file.begins_with("Combined_Mesh"):
+            xform = Transform3D.IDENTITY   # vertex'ler dunya koordinatinda bake'li
+        mi.transform = xform
         mi.material_override = _get_material(o.get("materials", []))
         add_child(mi)
         stats["objects"] += 1

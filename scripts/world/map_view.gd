@@ -3,7 +3,7 @@ extends Node3D
 
 @export var base_path: String = "res://assets/projeto/"
 @export var max_objects: int = 0
-@export var collision: bool = true
+@export var collision: bool = false
 
 
 func _ready() -> void:
@@ -36,6 +36,8 @@ func _ready() -> void:
 
     var cam := Camera3D.new()
     cam.fov = 70.0
+    cam.near = 0.1
+    cam.far = 30000.0
     add_child(cam)
 
     var aabb := AABB()
