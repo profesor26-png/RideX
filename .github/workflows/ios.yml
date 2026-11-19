@@ -1,0 +1,150 @@
+name: iOS Build (imzasiz IPA)
+
+# Amac: her push'ta imzasiz .ipa uretmek.
+# Imzalama Windows'ta Sideloadly ile yapilir (ucretsiz Apple ID, 7 gun).
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+  GODOT_CHANNEL: "stable"
+
+jobs:
+  build:
+    name: Godot -> Xcode -> IPA
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Depoyu al
+        uses: actions/checkout@v4
+
+      - name: Ortam bilgisi
+        run: |
+          set -euxo pipefail
+          sw_vers || true
+          uname -m || true
+          xcodebuild -version || true
+          xcode-select -p || true
+          df -h / || true
+
+      - name: Godot indir
+        run: |
+          set -euxo pipefail
+          URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_CHANNEL}/Godot_v${GODOT_VERSION}-${GODOT_CHANNEL}_macos.universal.zip"
+          echo "::group::Godot indiriliyor: $URL"
+          curl -fL --retry 3 --retry-delay 5 -o godot.zip "$URL"
+          unzip -q -o godot.zip
+          ls -la
+          GODOT_BIN="$(pwd)/Godot.app/Contents/MacOS/Godot"
+          chmod +x "$GODOT_BIN"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+          "$GODOT_BIN" --version
+          echo "::endgroup::"
+
+      - name: Export sablonlarini kur
+        run: |
+          set -euxo pipefail
+          URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_CHANNEL}/Godot_v${GODOT_VERSION}-${GODOT_CHANNEL}_export_templates.tpz"
+          echo "::group::Sablonlar indiriliyor: $URL"
+          curl -fL --retry 3 --retry-delay 5 -o templates.tpz "$URL"
+          DEST="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.${GODOT_CHANNEL}"
+          mkdir -p "$DEST"
+          rm -rf /tmp/tpl
+          unzip -q -o templates.tpz -d /tmp/tpl
+          cp -R /tmp/tpl/templates/. "$DEST/"
+          ls -la "$DEST"
+          echo "::endgroup::"
+
+      - name: Projeyi ice aktar (import)
+        run: |
+          set -euxo pipefail
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee godot-import.log
+
+      - name: Xcode projesi uret (Godot export)
+        run: |
+          set -euxo pipefail
+          mkdir -p build/ios
+          "$GODOT_BIN" --headless --path . --verbose \
+            --export-release "iOS" build/ios 2>&1 | tee godot-export.log
+          echo "::group::Uretilen dosyalar"
+          find build -maxdepth 4 -type d | sort
+          echo "::endgroup::"
+
+      - name: Info.plist kontrol (Dosyalar uygulamasindan log erisimi)
+        run: |
+          set -euxo pipefail
+          PLIST="$(find build -name Info.plist -maxdepth 5 | head -n1)"
+          echo "Info.plist: $PLIST"
+          test -n "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UIFileSharingEnabled bool true" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :LSSupportsOpeningDocumentsInPlace bool true" "$PLIST" 2>/dev/null || true
+          echo "::group::Info.plist icerigi"
+          /usr/libexec/PlistBuddy -c "Print" "$PLIST"
+          echo "::endgroup::"
+
+      - name: Xcode ile derle (imzasiz)
+        run: |
+          set -euxo pipefail
+          XCPROJ="$(find build -name "*.xcodeproj" -maxdepth 4 | head -n1)"
+          echo "xcodeproj: $XCPROJ"
+          test -n "$XCPROJ"
+          SCHEME="$(basename "$XCPROJ" .xcodeproj)"
+          echo "scheme: $SCHEME"
+          xcodebuild \
+            -project "$XCPROJ" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build/dd \
+            -resultBundlePath build/xcodebuild.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build 2>&1 | tee xcodebuild.log
+
+      - name: IPA paketle
+        run: |
+          set -euxo pipefail
+          APP="$(find build/dd -name "*.app" -maxdepth 6 | head -n1)"
+          echo "app: $APP"
+          test -n "$APP"
+          rm -rf build/payload
+          mkdir -p build/payload/Payload
+          cp -R "$APP" build/payload/Payload/
+          ( cd build/payload && zip -qry ../RideX-unsigned.ipa Payload )
+          ls -lh build/RideX-unsigned.ipa
+          echo "::group::IPA icerigi"
+          unzip -l build/RideX-unsigned.ipa | head -n 25
+          echo "::endgroup::"
+
+      - name: Loglari yukle (her durumda)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            godot-import.log
+            godot-export.log
+            xcodebuild.log
+            build/xcodebuild.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: IPA yukle
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ridex-ipa-unsigned
+          path: build/RideX-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

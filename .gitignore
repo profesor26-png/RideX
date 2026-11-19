@@ -1,0 +1,16 @@
+# Godot
+.godot/
+build/
+*.import
+
+# Derleme / imza sirlari
+*.p12
+*.mobileprovision
+export_credentials.cfg
+*.keystore
+
+# Log ve gecici
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
