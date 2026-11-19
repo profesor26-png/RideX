@@ -64,7 +64,7 @@ func _ready() -> void:
     else:
         var center := aabb.get_center()
         var radius := aabb.size.length()
-        var pos := center + Vector3(0.0, radius * 0.12, radius * 0.25)
+        var pos := center + Vector3(0.0, radius * 0.05, radius * 0.10)
         var dir := (center - pos).normalized()
         var yaw := atan2(-dir.x, -dir.z)
         var pitch := asin(clampf(dir.y, -1.0, 1.0))

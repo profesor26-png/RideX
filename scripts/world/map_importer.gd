@@ -45,25 +45,21 @@ func build() -> Dictionary:
         if mesh_file == "":
             stats["skipped"] += 1
             continue
-        var is_comb := mesh_file.begins_with("Combined_Mesh")
-        if static_only and not is_comb:
+        if static_only and not mesh_file.begins_with("Combined_Mesh"):
             stats["skipped"] += 1
             continue
-        if is_comb:
-            if _combined_done.has(mesh_file):
-                stats["skipped"] += 1
-                continue
-            _combined_done[mesh_file] = true
         var mesh := _get_mesh(mesh_file)
         if mesh == null:
+            stats["skipped"] += 1
+            continue
+        var xform := _to_transform(o.get("m", []))
+        var sc := xform.basis.get_scale()
+        if maxf(sc.x, maxf(sc.y, sc.z)) > 10.0:
             stats["skipped"] += 1
             continue
         var mi := MeshInstance3D.new()
         mi.name = _sanitize(str(o.get("name", "obj"))) + "_%d" % i
         mi.mesh = mesh
-        var xform := _to_transform(o.get("m", []))
-        if is_comb:
-            xform = Transform3D.IDENTITY   # vertex'ler dunya koordinatinda bake'li
         mi.transform = xform
         mi.material_override = _get_material(o.get("materials", []))
         add_child(mi)
@@ -208,6 +204,7 @@ func _get_material(names) -> Material:
         return _mat_cache[key]
 
     var mat := StandardMaterial3D.new()
+    mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     var d = _matdefs.get(key, {})
     if d is Dictionary and d.size() > 0:
         var col = d.get("color", [0.72, 0.72, 0.72, 1.0])
