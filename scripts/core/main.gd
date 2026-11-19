@@ -5,6 +5,7 @@ extends Node3D
 
 var _box: MeshInstance3D
 var _spin := 0.0
+var _last_input_log_ms := 0
 
 
 func _ready() -> void:
@@ -30,9 +31,20 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch and event.pressed:
-		Log.info("input", "dokunma: index=%d pos=%s" % [event.index, str(event.position)])
+		_log_input("dokunma index=%d pos=%s" % [event.index, event.position])
 	elif event is InputEventMouseButton and event.pressed:
-		Log.info("input", "tik: btn=%d pos=%s" % [event.button_index, str(event.position)])
+		# Tekerlek olaylari log'u doldurur, sadece gercek tiklari yaz.
+		if event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT:
+			_log_input("tik btn=%d pos=%s" % [event.button_index, event.position])
+
+
+## Log spam korumasi: 200 ms'de en fazla 1 girdi.
+func _log_input(text: String) -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_input_log_ms < 200:
+		return
+	_last_input_log_ms = now
+	Log.info("input", text)
 
 
 # ---------------------------------------------------------------- sahne
