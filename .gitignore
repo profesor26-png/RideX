@@ -1,6 +1,7 @@
 # Godot
 .godot/
 build/
+dist/
 *.import
 
 # Derleme / imza sirlari
