@@ -127,6 +127,24 @@ jobs:
           unzip -l build/RideX-unsigned.ipa | head -n 25
           echo "::endgroup::"
 
+      - name: Hata detayi (annotation)
+        if: failure()
+        run: |
+          set -x
+          echo "===== SABLON KLASORU ====="
+          ls -la "$HOME/Library/Application Support/Godot/export_templates/" || true
+          find "$HOME/Library/Application Support/Godot/export_templates" -maxdepth 2 -type f | head -n 50 || true
+          for f in godot-export.log godot-import.log xcodebuild.log; do
+            [ -f "$f" ] || continue
+            echo "===== $f (son 40 satir) ====="
+            tail -n 40 "$f"
+            tail -n 10 "$f" | while IFS= read -r l; do
+              l="${l//'%'/'%25'}"
+              l="${l//$'\r'/}"
+              echo "::error file=$f::$l"
+            done
+          done
+
       - name: Loglari yukle (her durumda)
         if: always()
         uses: actions/upload-artifact@v4
