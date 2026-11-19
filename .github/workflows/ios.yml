@@ -26,6 +26,16 @@ jobs:
       - name: Depoyu al
         uses: actions/checkout@v4
 
+      - name: Harita asset paketi (release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          gh release download assets-v1 -R "${{ github.repository }}" -p "assets_projeto.zip" -D .
+          ls -lh assets_projeto.zip
+          unzip -q -o assets_projeto.zip -d assets
+          ls assets/projeto | head
+
       - name: Ortam bilgisi
         run: |
           set -euxo pipefail
