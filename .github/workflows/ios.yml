@@ -35,6 +35,21 @@ jobs:
           xcode-select -p || true
           df -h / || true
 
+      - name: En yeni Xcode'u sec
+        run: |
+          set -euxo pipefail
+          echo "::group::Mevcut Xcode'lar"
+          ls -d /Applications/Xcode*.app || true
+          echo "::endgroup::"
+          XCODE_APP="$(ls -d /Applications/Xcode*.app | sort -V | tail -n1)"
+          echo "secili: $XCODE_APP"
+          sudo xcode-select -s "$XCODE_APP"
+          xcode-select -p
+          xcodebuild -version
+          echo "::group::iPhoneOS SDK"
+          xcrun --sdk iphoneos --show-sdk-version || true
+          echo "::endgroup::"
+
       - name: Godot indir
         run: |
           set -euxo pipefail
