@@ -10,12 +10,14 @@ class_name MapImporter
 @export var verbose: bool = false
 @export var collision: bool = false
 @export var collision_min_size: float = 1.5
+@export var static_only: bool = true
 
 var stats := {"objects": 0, "meshes_loaded": 0, "materials": 0, "skipped": 0, "colliders": 0}
 var _mesh_cache := {}
 var _mat_cache := {}
 var _matdefs := {}
 var _tex_cache := {}
+var _combined_done := {}
 
 const SIGN := [1.0, 1.0, -1.0, 1.0]   # F = diag(1,1,-1,1)
 
@@ -43,6 +45,15 @@ func build() -> Dictionary:
         if mesh_file == "":
             stats["skipped"] += 1
             continue
+        var is_comb := mesh_file.begins_with("Combined_Mesh")
+        if static_only and not is_comb:
+            stats["skipped"] += 1
+            continue
+        if is_comb:
+            if _combined_done.has(mesh_file):
+                stats["skipped"] += 1
+                continue
+            _combined_done[mesh_file] = true
         var mesh := _get_mesh(mesh_file)
         if mesh == null:
             stats["skipped"] += 1
@@ -51,7 +62,7 @@ func build() -> Dictionary:
         mi.name = _sanitize(str(o.get("name", "obj"))) + "_%d" % i
         mi.mesh = mesh
         var xform := _to_transform(o.get("m", []))
-        if mesh_file.begins_with("Combined_Mesh"):
+        if is_comb:
             xform = Transform3D.IDENTITY   # vertex'ler dunya koordinatinda bake'li
         mi.transform = xform
         mi.material_override = _get_material(o.get("materials", []))

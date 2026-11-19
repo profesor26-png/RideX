@@ -4,6 +4,7 @@ extends Node3D
 @export var base_path: String = "res://assets/projeto/"
 @export var max_objects: int = 0
 @export var collision: bool = false
+@export var static_only: bool = true
 
 
 func _ready() -> void:
@@ -30,6 +31,7 @@ func _ready() -> void:
     imp.max_objects = max_objects
     imp.verbose = true
     imp.collision = collision
+    imp.static_only = static_only
     add_child(imp)
     var st := imp.build()
     Log.info("map", "harita: %s" % str(st))
