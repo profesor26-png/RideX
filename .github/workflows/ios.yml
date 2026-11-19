@@ -33,7 +33,12 @@ jobs:
           set -euxo pipefail
           gh release download assets-v1 -R "${{ github.repository }}" -p "assets_projeto.zip" -D .
           ls -lh assets_projeto.zip
-          unzip -q -o assets_projeto.zip -d assets
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile("assets_projeto.zip") as z:
+              z.extractall("assets")
+          print("extracted")
+          PY
           ls assets/projeto | head
 
       - name: Ortam bilgisi
