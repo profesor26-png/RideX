@@ -34,10 +34,15 @@ func _ready() -> void:
         var n = stack.pop_back()
         if n is MeshInstance3D:
             meshes += 1
-            n.visibility_range_end = 8000.0
-            n.visibility_range_end_margin = 500.0
-            n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-            pts.append(n.global_position)
+            var wb: AABB = n.global_transform * n.get_aabb()
+            var mx := maxf(wb.size.x, maxf(wb.size.y, wb.size.z))
+            if mx > 2500.0:
+                n.visible = false
+            else:
+                n.visibility_range_end = 8000.0
+                n.visibility_range_end_margin = 500.0
+                n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+                pts.append(n.global_position)
         for c in n.get_children():
             stack.append(c)
 
