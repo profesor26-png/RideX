@@ -1,5 +1,5 @@
 extends Node3D
-## AssetRipper'in glTF sahnesini (Demo Scene.glb) yukler: dogru transform/materyal.
+## AssetRipper'in glTF sahnesini yukler + zemin + surulebilir motosiklet + takip kamerasi.
 
 func _ready() -> void:
     var env := WorldEnvironment.new()
@@ -29,6 +29,7 @@ func _ready() -> void:
 
     var pts: Array = []
     var meshes := 0
+    var bottoms: Array = []
     var stack: Array = [root]
     while not stack.is_empty():
         var n = stack.pop_back()
@@ -43,36 +44,61 @@ func _ready() -> void:
                 n.visibility_range_end_margin = 500.0
                 n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
                 pts.append(n.global_position)
+                bottoms.append(wb.position.y)
         for c in n.get_children():
             stack.append(c)
 
-    var cam := Camera3D.new()
-    cam.fov = 70.0
-    cam.near = 0.1
-    cam.far = 30000.0
-    cam.set_script(load("res://scripts/world/free_fly.gd"))
-    add_child(cam)
-
-    if pts.is_empty():
-        cam.position = Vector3(0, 200, 400)
-        cam.rotation = Vector3(-0.4, 0, 0)
-        Log.info("city", "mesh yok")
-    else:
+    var center := Vector3.ZERO
+    var radius := 100.0
+    if not pts.is_empty():
         var xs: Array = []
         var ys: Array = []
         var zs: Array = []
         for p in pts:
             xs.append(p.x); ys.append(p.y); zs.append(p.z)
         xs.sort(); ys.sort(); zs.sort()
-        var center := Vector3(xs[xs.size() / 2], ys[ys.size() / 2], zs[zs.size() / 2])
+        center = Vector3(xs[xs.size() / 2], ys[ys.size() / 2], zs[zs.size() / 2])
         var ds: Array = []
         for p in pts:
             ds.append(p.distance_to(center))
         ds.sort()
-        var radius: float = maxf(ds[int(ds.size() * 0.8)], 20.0)
-        var pos := center + Vector3(0.0, radius * 0.6, radius * 1.2)
-        var dir := (center - pos).normalized()
-        cam.position = pos
-        cam.rotation = Vector3(asin(clampf(dir.y, -1.0, 1.0)), atan2(-dir.x, -dir.z), 0.0)
-        Log.info("city", "mesh=%d merkez=%s yari=%s" % [meshes, str(center), str(radius)])
+        radius = maxf(ds[int(ds.size() * 0.8)], 20.0)
+
+    if bottoms.is_empty():
+        bottoms.append(0.0)
+    bottoms.sort()
+    var ground_y: float = bottoms[bottoms.size() / 2]
+
+    # zemin collider (duz)
+    var ground := StaticBody3D.new()
+    var gcs := CollisionShape3D.new()
+    var gbox := BoxShape3D.new()
+    gbox.size = Vector3(6000, 2, 6000)
+    gcs.shape = gbox
+    ground.add_child(gcs)
+    ground.position = Vector3(center.x, ground_y - 1.0, center.z)
+    add_child(ground)
+
+    # motosiklet
+    var bike: Node3D = load("res://scenes/vehicle/bike.tscn").instantiate()
+    bike.position = Vector3(center.x, ground_y + 2.5, center.z + 30.0)
+    add_child(bike)
+
+    # takip kamerasi
+    var cam := Camera3D.new()
+    cam.fov = 75.0
+    cam.near = 0.1
+    cam.far = 20000.0
+    cam.set_script(load("res://scripts/vehicle/chase_camera.gd"))
+    add_child(cam)
+    cam.target = bike
+    var back: Vector3 = bike.global_transform.basis.z.normalized() * 7.0
+    cam.global_position = bike.global_position + back + Vector3.UP * 3.0
     cam.current = true
+
+    # dokunmatik kontroller
+    var ui = load("res://scripts/ui/ride_controls.gd").new()
+    add_child(ui)
+    ui.set_bike(bike)
+
+    Log.info("city", "mesh=%d merkez=%s yari=%s zemin=%s" % [meshes, str(center), str(radius), str(ground_y)])
