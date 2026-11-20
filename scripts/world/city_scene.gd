@@ -27,42 +27,47 @@ func _ready() -> void:
     var root = ps.instantiate()
     add_child(root)
 
-    var aabb := AABB()
-    var first := true
+    var pts: Array = []
     var meshes := 0
     var stack: Array = [root]
     while not stack.is_empty():
         var n = stack.pop_back()
         if n is MeshInstance3D:
             meshes += 1
-            n.visibility_range_end = 3000.0
-            n.visibility_range_end_margin = 200.0
+            n.visibility_range_end = 8000.0
+            n.visibility_range_end_margin = 500.0
             n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-            var wb: AABB = n.global_transform * n.get_aabb()
-            if first:
-                aabb = wb
-                first = false
-            else:
-                aabb = aabb.merge(wb)
+            pts.append(n.global_position)
         for c in n.get_children():
             stack.append(c)
 
     var cam := Camera3D.new()
     cam.fov = 70.0
     cam.near = 0.1
-    cam.far = 20000.0
+    cam.far = 30000.0
     cam.set_script(load("res://scripts/world/free_fly.gd"))
     add_child(cam)
 
-    if first:
+    if pts.is_empty():
         cam.position = Vector3(0, 200, 400)
         cam.rotation = Vector3(-0.4, 0, 0)
+        Log.info("city", "mesh yok")
     else:
-        var center := aabb.get_center()
-        var size := aabb.size.length()
-        var pos := center + Vector3(0.0, size * 0.35, size * 0.7)
+        var xs: Array = []
+        var ys: Array = []
+        var zs: Array = []
+        for p in pts:
+            xs.append(p.x); ys.append(p.y); zs.append(p.z)
+        xs.sort(); ys.sort(); zs.sort()
+        var center := Vector3(xs[xs.size() / 2], ys[ys.size() / 2], zs[zs.size() / 2])
+        var ds: Array = []
+        for p in pts:
+            ds.append(p.distance_to(center))
+        ds.sort()
+        var radius: float = maxf(ds[int(ds.size() * 0.8)], 20.0)
+        var pos := center + Vector3(0.0, radius * 0.6, radius * 1.2)
         var dir := (center - pos).normalized()
         cam.position = pos
         cam.rotation = Vector3(asin(clampf(dir.y, -1.0, 1.0)), atan2(-dir.x, -dir.z), 0.0)
-        Log.info("city", "mesh=%d merkez=%s cap=%s" % [meshes, str(center), str(aabb.size)])
+        Log.info("city", "mesh=%d merkez=%s yari=%s" % [meshes, str(center), str(radius)])
     cam.current = true
