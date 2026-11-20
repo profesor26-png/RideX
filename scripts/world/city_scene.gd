@@ -154,7 +154,7 @@ func _ready() -> void:
     _set_load(95, "Motosiklet")
     await get_tree().process_frame
     var bike: Node3D = load("res://scenes/vehicle/bike.tscn").instantiate()
-    bike.position = Vector3(center.x, ground_y + 2.5, center.z + 30.0)
+    bike.position = Vector3(center.x, ground_y + 5.0, center.z + 30.0)
     add_child(bike)
 
     var cam := Camera3D.new()

@@ -8,7 +8,7 @@ Get-ChildItem $dist -Filter "part*.bin" -ErrorAction SilentlyContinue | Remove-I
 
 $zip = Join-Path $dist "artifact.zip"
 $token = (& $gh auth token).Trim()
-$arts = (& $gh api "repos/profesor26-png/RideX/actions/runs/44751652961/artifacts") | ConvertFrom-Json
+$arts = (& $gh api "repos/profesor26-png/RideX/actions/runs/44760267295/artifacts") | ConvertFrom-Json
 $art = $arts.artifacts | Where-Object { $_.name -eq "ridex-ipa-unsigned" } | Select-Object -First 1
 $api = "https://api.github.com/repos/profesor26-png/RideX/actions/artifacts/$($art.id)/zip"
 $total = [int64]$art.size_in_bytes

@@ -5,25 +5,31 @@ var throttle := 0.0
 var brake := 0.0
 var steer := 0.0
 
-@export var accel := 30.0
+@export var accel := 40.0
 @export var max_speed := 42.0
-@export var turn_torque := 2400.0
+@export var turn_torque := 3000.0
 @export var upright_torque := 9000.0
-@export var downforce := 7000.0
+@export var downforce := 0.0
 
 var _ray: RayCast3D
 var _grounded := false
 var _engine: AudioStreamPlayer3D
 var _log_t := 0.0
+var _autotest := false
 
 
 func _ready() -> void:
     mass = 220.0
     gravity_scale = 1.0
     angular_damp = 3.0
-    linear_damp = 0.1
+    linear_damp = 0.0
     continuous_cd = true
     can_sleep = false
+    _autotest = OS.has_environment("AUTOTEST")
+
+    var pm := PhysicsMaterial.new()
+    pm.friction = 0.15
+    physics_material_override = pm
 
     var cs := CollisionShape3D.new()
     var box := BoxShape3D.new()
@@ -31,8 +37,7 @@ func _ready() -> void:
     cs.shape = box
     add_child(cs)
 
-    if not _attach_model("res://assets/scene/mt07.glb"):
-        _build_placeholder()
+    _build_bike_visual()
 
     _ray = RayCast3D.new()
     _ray.target_position = Vector3(0, -1.6, 0)
@@ -42,56 +47,48 @@ func _ready() -> void:
     _setup_engine_audio()
 
 
-func _collect_aabb(n: Node, xf: Transform3D) -> Array:
-    var first := true
-    var box := AABB()
-    if n is MeshInstance3D and n.mesh != null:
-        box = xf * n.transform * n.mesh.get_aabb()
-        first = false
-    for c in n.get_children():
-        var r := _collect_aabb(c, xf * n.transform)
-        if not r[0]:
-            if first:
-                box = r[1]
-                first = false
-            else:
-                box = box.merge(r[1])
-    return [first, box]
+func _build_bike_visual() -> void:
+    var paint := StandardMaterial3D.new()
+    paint.albedo_color = Color(0.85, 0.12, 0.08)
+    var dark := StandardMaterial3D.new()
+    dark.albedo_color = Color(0.06, 0.06, 0.07)
 
-
-func _attach_model(path: String) -> bool:
-    var ps = load(path)
-    if ps == null:
-        return false
-    var model = ps.instantiate()
-    if model == null:
-        return false
-    var r := _collect_aabb(model, Transform3D.IDENTITY)
-    if r[0]:
-        return false
-    var aabb: AABB = r[1]
-    var size := aabb.size
-    var longest := maxf(size.x, maxf(size.y, size.z))
-    if longest < 0.01:
-        return false
-    var s := 1.9 / longest
-    model.scale = Vector3.ONE * s
-    model.rotate_y(PI)
-    var c := aabb.get_center()
-    model.position = Vector3(-c.x * s, -aabb.position.y * s + 0.45, -c.z * s)
-    add_child(model)
-    return true
-
-
-func _build_placeholder() -> void:
-    var mat := StandardMaterial3D.new()
-    mat.albedo_color = Color(0.85, 0.15, 0.1)
     var body := MeshInstance3D.new()
     var bm := BoxMesh.new()
-    bm.size = Vector3(0.55, 0.55, 1.8)
+    bm.size = Vector3(0.45, 0.5, 1.5)
     body.mesh = bm
-    body.material_override = mat
+    body.material_override = paint
+    body.position = Vector3(0, 0.05, 0)
     add_child(body)
+
+    var tank := MeshInstance3D.new()
+    var tm := BoxMesh.new()
+    tm.size = Vector3(0.38, 0.3, 0.6)
+    tank.mesh = tm
+    tank.material_override = paint
+    tank.position = Vector3(0, 0.42, -0.1)
+    add_child(tank)
+
+    for z in [-0.72, 0.72]:
+        var w := MeshInstance3D.new()
+        var cyl := CylinderMesh.new()
+        cyl.top_radius = 0.33
+        cyl.bottom_radius = 0.33
+        cyl.height = 0.16
+        cyl.radial_segments = 18
+        w.mesh = cyl
+        w.rotation_degrees = Vector3(0, 0, 90)
+        w.position = Vector3(0, -0.38, z)
+        w.material_override = dark
+        add_child(w)
+
+    var bar := MeshInstance3D.new()
+    var bar_m := BoxMesh.new()
+    bar_m.size = Vector3(0.7, 0.06, 0.06)
+    bar.mesh = bar_m
+    bar.material_override = dark
+    bar.position = Vector3(0, 0.55, -0.55)
+    add_child(bar)
 
 
 func _setup_engine_audio() -> void:
@@ -110,6 +107,8 @@ func _setup_engine_audio() -> void:
 
 
 func _physics_process(delta: float) -> void:
+    if _autotest:
+        throttle = 1.0
     _grounded = _ray.is_colliding()
     var up := global_transform.basis.y
     var upright_err := clampf(1.0 - up.dot(Vector3.UP), 0.0, 1.0)
@@ -137,6 +136,6 @@ func _physics_process(delta: float) -> void:
         _engine.volume_db = -8.0 + throttle * 6.0
 
     _log_t += delta
-    if _log_t >= 1.0:
+    if _log_t >= 1.0 and _autotest:
         _log_t = 0.0
-        Log.info("bike", "spd=%.1f thr=%.1f gnd=%s" % [speed, throttle, str(_grounded)])
+        Log.info("bike", "spd=%.2f thr=%.1f gnd=%s pos=%.1f,%.1f" % [speed, throttle, str(_grounded), global_position.x, global_position.z])
