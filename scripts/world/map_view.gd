@@ -4,7 +4,7 @@ extends Node3D
 @export var base_path: String = "res://assets/projeto/"
 @export var max_objects: int = 0
 @export var collision: bool = false
-@export var static_only: bool = false
+@export var static_only: bool = true
 
 var _load_layer: CanvasLayer
 var _load_bar: ProgressBar
@@ -29,6 +29,7 @@ func _ready() -> void:
     imp.collision = collision
     imp.static_only = static_only
     imp.world_scale = 1.0
+    imp.unshaded = true
     add_child(imp)
 
     var st = await imp.build_async(_on_progress)

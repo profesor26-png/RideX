@@ -12,6 +12,7 @@ class_name MapImporter
 @export var collision_min_size: float = 1.5
 @export var static_only: bool = false
 @export var world_scale: float = 1.0
+@export var unshaded: bool = false
 
 var stats := {"objects": 0, "meshes_loaded": 0, "materials": 0, "skipped": 0, "colliders": 0}
 var _mesh_cache := {}
@@ -226,6 +227,8 @@ func _get_material(names) -> Material:
 
     var mat := StandardMaterial3D.new()
     mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    if unshaded:
+        mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     var d = _matdefs.get(key, {})
     if d is Dictionary and d.size() > 0:
         var col = d.get("color", [0.72, 0.72, 0.72, 1.0])
