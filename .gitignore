@@ -6,6 +6,7 @@ dist/
 
 # Harita assetleri (GitHub Release uzerinden dagitilir)
 assets/projeto/
+assets/scene/
 
 # Derleme / imza sirlari
 *.p12

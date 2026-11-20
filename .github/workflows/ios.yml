@@ -41,6 +41,21 @@ jobs:
           PY
           ls assets/projeto | head
 
+      - name: Sahne glTF paketi (release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          gh release download assets-v1 -R "${{ github.repository }}" -p "demo_glb.zip" -D .
+          ls -lh demo_glb.zip
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile("demo_glb.zip") as z:
+              z.extractall("assets")
+          print("scene extracted")
+          PY
+          ls -lh assets/scene
+
       - name: Ortam bilgisi
         run: |
           set -euxo pipefail
