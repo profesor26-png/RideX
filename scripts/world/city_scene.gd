@@ -1,7 +1,54 @@
 extends Node3D
-## AssetRipper'in glTF sahnesini yukler + zemin + surulebilir motosiklet + takip kamerasi.
+## glTF sahnesi + zemin + motosiklet + yukleme bari.
+
+var _load: CanvasLayer
+var _bar: ProgressBar
+var _lbl: Label
+
+
+func _set_load(p: int, text: String) -> void:
+    if _bar != null:
+        _bar.value = p
+    if _lbl != null:
+        _lbl.text = "%s... %%%d" % [text, p]
+
+
+func _make_loading() -> void:
+    _load = CanvasLayer.new()
+    add_child(_load)
+
+    var bg := ColorRect.new()
+    bg.color = Color(0.03, 0.04, 0.06, 1.0)
+    bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _load.add_child(bg)
+
+    var center := CenterContainer.new()
+    center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _load.add_child(center)
+
+    var vb := VBoxContainer.new()
+    vb.custom_minimum_size = Vector2(480, 0)
+    center.add_child(vb)
+
+    _lbl = Label.new()
+    _lbl.text = "Yukleniyor... %0"
+    _lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _lbl.add_theme_font_size_override("font_size", 26)
+    vb.add_child(_lbl)
+
+    _bar = ProgressBar.new()
+    _bar.max_value = 100
+    _bar.value = 0
+    _bar.show_percentage = false
+    _bar.custom_minimum_size = Vector2(480, 30)
+    vb.add_child(_bar)
+
 
 func _ready() -> void:
+    _make_loading()
+    await get_tree().process_frame
+
+    _set_load(5, "Ortam hazirlaniyor")
     var env := WorldEnvironment.new()
     var e := Environment.new()
     e.background_mode = Environment.BG_SKY
@@ -19,14 +66,22 @@ func _ready() -> void:
     sun.light_energy = 1.3
     sun.shadow_enabled = false
     add_child(sun)
+    await get_tree().process_frame
 
+    _set_load(15, "Sahne dosyasi okunuyor")
     var ps = load("res://assets/scene/demo.glb")
     if ps == null:
+        _set_load(100, "HATA: sahne yok")
         Log.error("city", "demo.glb yuklenemedi")
         return
+
+    _set_load(35, "Sahne kuruluyor")
+    await get_tree().process_frame
     var root = ps.instantiate()
     add_child(root)
+    await get_tree().process_frame
 
+    _set_load(60, "Objeler isleniyor")
     var pts: Array = []
     var meshes := 0
     var bottoms: Array = []
@@ -69,7 +124,8 @@ func _ready() -> void:
     bottoms.sort()
     var ground_y: float = bottoms[bottoms.size() / 2]
 
-    # zemin collider (duz)
+    _set_load(75, "Zemin hazirlaniyor")
+    await get_tree().process_frame
     var ground := StaticBody3D.new()
     var gcs := CollisionShape3D.new()
     var gbox := BoxShape3D.new()
@@ -79,7 +135,8 @@ func _ready() -> void:
     ground.position = Vector3(center.x, ground_y - 1.0, center.z)
     add_child(ground)
 
-    # yakin binalara carpisma ekle
+    _set_load(85, "Binalara carpisma")
+    await get_tree().process_frame
     var spawn_pos := Vector3(center.x, ground_y, center.z + 30.0)
     stack = [root]
     var colliders := 0
@@ -94,12 +151,12 @@ func _ready() -> void:
         for c2 in n2.get_children():
             stack.append(c2)
 
-    # motosiklet
+    _set_load(95, "Motosiklet")
+    await get_tree().process_frame
     var bike: Node3D = load("res://scenes/vehicle/bike.tscn").instantiate()
     bike.position = Vector3(center.x, ground_y + 2.5, center.z + 30.0)
     add_child(bike)
 
-    # takip kamerasi
     var cam := Camera3D.new()
     cam.fov = 75.0
     cam.near = 0.1
@@ -111,9 +168,12 @@ func _ready() -> void:
     cam.global_position = bike.global_position + back + Vector3.UP * 3.0
     cam.current = true
 
-    # dokunmatik kontroller
     var ui = load("res://scripts/ui/ride_controls.gd").new()
     add_child(ui)
     ui.set_bike(bike)
 
+    _set_load(100, "Hazir")
     Log.info("city", "mesh=%d merkez=%s yari=%s zemin=%s collider=%d" % [meshes, str(center), str(radius), str(ground_y), colliders])
+    await get_tree().process_frame
+    _load.visible = false
+    _load.queue_free()

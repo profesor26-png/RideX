@@ -16,8 +16,8 @@ func _ready() -> void:
 
     _btn(root, "GAZ", 0.82, 0.62, func(): _set_prop("throttle", 1.0), func(): _set_prop("throttle", 0.0))
     _btn(root, "FREN", 0.82, 0.80, func(): _set_prop("brake", 1.0), func(): _set_prop("brake", 0.0))
-    _btn(root, "◀", 0.06, 0.74, func(): _set_prop("steer", -1.0), func(): _set_prop("steer", 0.0))
-    _btn(root, "▶", 0.20, 0.74, func(): _set_prop("steer", 1.0), func(): _set_prop("steer", 0.0))
+    _btn(root, "<", 0.06, 0.74, func(): _set_prop("steer", -1.0), func(): _set_prop("steer", 0.0))
+    _btn(root, ">", 0.20, 0.74, func(): _set_prop("steer", 1.0), func(): _set_prop("steer", 0.0))
 
 
 func _set_prop(prop: String, v: float) -> void:
