@@ -79,6 +79,10 @@ func _spawn_one(o: Dictionary, i: int) -> bool:
     if mesh == null:
         return false
     var xform := _to_transform(o.get("m", []))
+    var scv := xform.basis.get_scale()
+    var s := maxf(scv.x, maxf(scv.y, scv.z))
+    if s > 2.0:
+        xform.basis = xform.basis * (1.0 / s)
     var mi := MeshInstance3D.new()
     mi.name = _sanitize(str(o.get("name", "obj"))) + "_%d" % i
     mi.mesh = mesh
@@ -147,10 +151,10 @@ func _parse_obj(path: String) -> Mesh:
                     var a := _vi(p[1])
                     var b := _vi(p[2])
                     var c := _vi(p[3])
-                    idx.append(a); idx.append(c); idx.append(b)
+                    idx.append(a); idx.append(b); idx.append(c)
                     if p.size() >= 5:
                         var d := _vi(p[4])
-                        idx.append(a); idx.append(d); idx.append(c)
+                        idx.append(a); idx.append(c); idx.append(d)
     f.close()
 
     if verts.is_empty() or idx.is_empty():

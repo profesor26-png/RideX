@@ -4,7 +4,7 @@ extends Node3D
 @export var base_path: String = "res://assets/projeto/"
 @export var max_objects: int = 0
 @export var collision: bool = false
-@export var static_only: bool = true
+@export var static_only: bool = false
 
 var _load_layer: CanvasLayer
 var _load_bar: ProgressBar
@@ -16,7 +16,7 @@ func _ready() -> void:
 
     var sun := DirectionalLight3D.new()
     sun.rotation_degrees = Vector3(-50, -35, 0)
-    sun.light_energy = 1.2
+    sun.light_energy = 1.3
     sun.shadow_enabled = false
     add_child(sun)
 
@@ -29,7 +29,7 @@ func _ready() -> void:
     imp.collision = collision
     imp.static_only = static_only
     imp.world_scale = 1.0
-    imp.unshaded = true
+    imp.unshaded = false
     add_child(imp)
 
     var st = await imp.build_async(_on_progress)
@@ -42,6 +42,29 @@ func _ready() -> void:
     cam.far = 30000.0
     cam.set_script(load("res://scripts/world/free_fly.gd"))
     add_child(cam)
+
+    # aykiri obje temizligi (sehir merkezinden uzak / ucan)
+    var city_pts2: Array = []
+    for c in imp.get_children():
+        if c is MeshInstance3D and c.get_meta("city", false):
+            city_pts2.append(c.transform.origin)
+    var city_center := Vector3.ZERO
+    if not city_pts2.is_empty():
+        var ax: Array = []
+        var ay: Array = []
+        var az: Array = []
+        for p in city_pts2:
+            ax.append(p.x); ay.append(p.y); az.append(p.z)
+        ax.sort(); ay.sort(); az.sort()
+        city_center = Vector3(ax[ax.size() / 2], ay[ay.size() / 2], az[az.size() / 2])
+    var removed := 0
+    for c in imp.get_children():
+        if c is MeshInstance3D and not c.get_meta("city", false):
+            var p: Vector3 = c.transform.origin
+            if p.distance_to(city_center) > 2800.0 or p.y < -80.0 or p.y > 250.0:
+                c.free()
+                removed += 1
+    Log.info("map", "aykiri temizlenen: %d" % removed)
 
     var pts: Array = []
     for c in imp.get_children():
