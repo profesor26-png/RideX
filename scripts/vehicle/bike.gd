@@ -1,5 +1,5 @@
 extends RigidBody3D
-## Arcade motosiklet: raycast zemin, dik tutma, gaz/fren/donus.
+## Arcade motosiklet: raycast zemin, dik tutma, gaz/fren/donus, motor sesi.
 
 var throttle := 0.0
 var brake := 0.0
@@ -13,6 +13,7 @@ var steer := 0.0
 
 var _ray: RayCast3D
 var _grounded := false
+var _engine: AudioStreamPlayer3D
 
 
 func _ready() -> void:
@@ -28,18 +29,34 @@ func _ready() -> void:
     cs.shape = box
     add_child(cs)
 
-    _build_visual()
+    if not _attach_model("res://assets/scene/mt07.glb"):
+        _build_placeholder()
 
     _ray = RayCast3D.new()
     _ray.target_position = Vector3(0, -1.5, 0)
     _ray.enabled = true
     add_child(_ray)
 
+    _setup_engine_audio()
 
-func _build_visual() -> void:
+
+func _attach_model(path: String) -> bool:
+    var ps = load(path)
+    if ps == null:
+        return false
+    var model = ps.instantiate()
+    if model == null:
+        return false
+    add_child(model)
+    # modeli motosiklet govdesine hizala
+    model.rotate_y(PI)
+    model.position = Vector3(0, 0.55, 0)
+    return true
+
+
+func _build_placeholder() -> void:
     var mat := StandardMaterial3D.new()
     mat.albedo_color = Color(0.85, 0.15, 0.1)
-
     var body := MeshInstance3D.new()
     var bm := BoxMesh.new()
     bm.size = Vector3(0.55, 0.55, 1.8)
@@ -63,6 +80,22 @@ func _build_visual() -> void:
         add_child(w)
 
 
+func _setup_engine_audio() -> void:
+    var st = load("res://assets/scene/audio/Engine_Generic_Idle.ogg")
+    if st == null:
+        return
+    if st is AudioStreamOggVorbis:
+        st.loop = true
+    _engine = AudioStreamPlayer3D.new()
+    _engine.stream = st
+    _engine.unit_size = 12.0
+    _engine.max_db = 0.0
+    _engine.volume_db = -6.0
+    _engine.autoplay = true
+    add_child(_engine)
+    _engine.play()
+
+
 func _physics_process(_delta: float) -> void:
     _grounded = _ray.is_colliding()
     var up := global_transform.basis.y
@@ -80,3 +113,8 @@ func _physics_process(_delta: float) -> void:
         var steer_scale := clampf(absf(speed) / 12.0, 0.0, 1.0)
         apply_torque(Vector3.UP * -steer * turn_torque * steer_scale)
         apply_torque(fwd.cross(Vector3.UP) * steer * 1200.0 * steer_scale)
+
+        if _engine != null:
+            var t := clampf(absf(speed) / max_speed, 0.0, 1.0)
+            _engine.pitch_scale = 0.75 + t * 1.5
+            _engine.volume_db = -8.0 + throttle * 5.0

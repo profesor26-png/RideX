@@ -79,6 +79,21 @@ func _ready() -> void:
     ground.position = Vector3(center.x, ground_y - 1.0, center.z)
     add_child(ground)
 
+    # yakin binalara carpisma ekle
+    var spawn_pos := Vector3(center.x, ground_y, center.z + 30.0)
+    stack = [root]
+    var colliders := 0
+    while not stack.is_empty():
+        var n2 = stack.pop_back()
+        if n2 is MeshInstance3D:
+            var wb2: AABB = n2.global_transform * n2.get_aabb()
+            var mx2 := maxf(wb2.size.x, maxf(wb2.size.y, wb2.size.z))
+            if mx2 < 800.0 and n2.global_position.distance_to(spawn_pos) < 350.0:
+                n2.create_trimesh_collision()
+                colliders += 1
+        for c2 in n2.get_children():
+            stack.append(c2)
+
     # motosiklet
     var bike: Node3D = load("res://scenes/vehicle/bike.tscn").instantiate()
     bike.position = Vector3(center.x, ground_y + 2.5, center.z + 30.0)
@@ -101,4 +116,4 @@ func _ready() -> void:
     add_child(ui)
     ui.set_bike(bike)
 
-    Log.info("city", "mesh=%d merkez=%s yari=%s zemin=%s" % [meshes, str(center), str(radius), str(ground_y)])
+    Log.info("city", "mesh=%d merkez=%s yari=%s zemin=%s collider=%d" % [meshes, str(center), str(radius), str(ground_y), colliders])
